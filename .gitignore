@@ -61,6 +61,13 @@ cover/
 *.mo
 *.pot
 
+# Ignore all files in the uploads folder
+data/*
+
+# But do NOT ignore the .gitkeep file
+!data/.gitkeep
+
+
 # Django stuff:
 *.log
 local_settings.py
