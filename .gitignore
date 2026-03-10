@@ -63,9 +63,11 @@ cover/
 
 # Ignore all files in the uploads folder
 data/*
+artifacts/*
 
 # But do NOT ignore the .gitkeep file
 !data/.gitkeep
+!artifacts/.gitkeep
 
 
 # Django stuff:
