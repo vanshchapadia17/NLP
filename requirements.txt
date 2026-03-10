@@ -8,3 +8,4 @@ nltk
 scipy
 flask
 flask-cors
+gensim

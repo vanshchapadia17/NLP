@@ -2,10 +2,10 @@ import os
 import sys
 from dataclasses import dataclass
 
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import MultinomialNB, GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 from src.exception import CustomException
 from src.logger import logger
@@ -18,15 +18,22 @@ class ModelTrainerConfig:
 
 
 class ModelTrainer:
-    def __init__(self):
+    def __init__(self, model_path: str = None):
         self.config = ModelTrainerConfig()
+        if model_path is not None:
+            self.config.model_path = model_path
 
-    def initiate_model_trainer(self, X_train, y_train, X_test, y_test):
+    def initiate_model_trainer(self, X_train, y_train, X_test, y_test, use_dense_nb: bool = False):
         try:
             logger.info("Starting model training")
 
+            # MultinomialNB requires non-negative features (TF-IDF).
+            # For Word2Vec dense vectors use GaussianNB instead.
+            nb_model = GaussianNB() if use_dense_nb else MultinomialNB(alpha=0.1)
+            nb_label = "Gaussian Naive Bayes" if use_dense_nb else "Multinomial Naive Bayes"
+
             models = {
-                "Multinomial Naive Bayes": MultinomialNB(alpha=0.1),
+                nb_label: nb_model,
                 "Logistic Regression": LogisticRegression(max_iter=1000, C=1.0),
                 "Linear SVC": LinearSVC(C=1.0, max_iter=2000),
                 "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
@@ -63,11 +70,12 @@ class ModelTrainer:
                 )
             print("=" * 60)
 
-            # Re-train best model on full data and save
+            # Re-train best model on full data and optionally save
             best_model = models[best_name]
             best_model.fit(X_train, y_train)
-            save_object(self.config.model_path, best_model)
-            logger.info(f"Best model saved to {self.config.model_path}")
+            if self.config.model_path:
+                save_object(self.config.model_path, best_model)
+                logger.info(f"Best model saved to {self.config.model_path}")
 
             return best_name, best_score, report
 

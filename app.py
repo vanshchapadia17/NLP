@@ -114,16 +114,28 @@ def train():
 
         from src.pipeline.train_pipeline import TrainPipeline
         pipeline = TrainPipeline()
-        best_name, best_score, report = pipeline.run()
+        best_name, best_score, report, comparison = pipeline.run()
 
-        clean_report = {
-            k: {m: round(float(v), 4) for m, v in metrics.items()}
-            for k, metrics in report.items()
+        def clean_report(r):
+            return {
+                k: {m: round(float(v), 4) for m, v in metrics.items()}
+                for k, metrics in r.items()
+            }
+
+        clean_comparison = {
+            vectorizer: {
+                "best_model": data["best_model"],
+                "f1_score": round(float(data["f1_score"]), 4),
+                "report": clean_report(data["report"]),
+            }
+            for vectorizer, data in comparison.items()
         }
+
         return jsonify({
             "best_model": best_name,
             "f1_score": round(float(best_score), 4),
-            "report": clean_report,
+            "report": clean_report(report),
+            "comparison": clean_comparison,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.pipeline import Pipeline
 
 from src.exception import CustomException
 from src.logger import logger
@@ -52,6 +51,11 @@ def clean_text(text: str) -> str:
     return text
 
 
+@dataclass
+class Word2VecTransformationConfig:
+    model_path: str = os.path.join("artifacts", "word2vec_model.pkl")
+
+
 class DataTransformation:
     def __init__(self):
         self.config = DataTransformationConfig()
@@ -87,6 +91,57 @@ class DataTransformation:
             logger.info(f"Vectorizer saved. Feature matrix: {X_train_tfidf.shape}")
 
             return X_train_tfidf, y_train, X_test_tfidf, y_test
+
+        except Exception as e:
+            raise CustomException(e, sys)
+
+
+class Word2VecTransformation:
+    def __init__(self):
+        self.config = Word2VecTransformationConfig()
+        self.vector_size = 100
+
+    def _text_to_vector(self, text: str, wv) -> np.ndarray:
+        words = text.split()
+        vectors = [wv[w] for w in words if w in wv]
+        if vectors:
+            return np.mean(vectors, axis=0)
+        return np.zeros(self.vector_size)
+
+    def initiate_data_transformation(self, train_path: str, test_path: str):
+        try:
+            from gensim.models import Word2Vec
+
+            logger.info("Starting Word2Vec data transformation")
+            train_df = pd.read_csv(train_path)
+            test_df = pd.read_csv(test_path)
+
+            train_df["clean_text"] = train_df["text"].apply(clean_text)
+            test_df["clean_text"] = test_df["text"].apply(clean_text)
+
+            sentences = [t.split() for t in train_df["clean_text"]]
+
+            logger.info("Training Word2Vec model (CBOW)...")
+            w2v_model = Word2Vec(
+                sentences,
+                vector_size=self.vector_size,
+                window=5,
+                min_count=1,
+                sg=0,       # CBOW
+                epochs=15,
+                workers=4,
+            )
+
+            save_object(self.config.model_path, w2v_model)
+            logger.info(f"Word2Vec model saved. Vocab size: {len(w2v_model.wv)}")
+
+            X_train = np.array([self._text_to_vector(t, w2v_model.wv) for t in train_df["clean_text"]])
+            X_test  = np.array([self._text_to_vector(t, w2v_model.wv) for t in test_df["clean_text"]])
+            y_train = train_df["label"].values
+            y_test  = test_df["label"].values
+
+            logger.info(f"Word2Vec feature matrix: {X_train.shape}")
+            return X_train, y_train, X_test, y_test
 
         except Exception as e:
             raise CustomException(e, sys)
